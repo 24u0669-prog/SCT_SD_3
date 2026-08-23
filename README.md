@@ -129,11 +129,6 @@ Solved Sudoku Puzzle:
 2 8 7 | 4 1 9 | 6 3 5
 3 4 5 | 2 8 6 | 1 7 9
 
-Solved in 4.281 ms
-```
-
----
-
 ## 🔮 Future Enhancements
 
 - [ ] Accept custom puzzle input via file or user prompt
@@ -142,13 +137,9 @@ Solved in 4.281 ms
 - [ ] Sudoku validity checker for user-submitted grids
 - [ ] Support for larger grid variants (16x16)
 
----
-
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).
-
----
 
 ## 🙋 Author
 Soundarya Umesh Barigidad,
