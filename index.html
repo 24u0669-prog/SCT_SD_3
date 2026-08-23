@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sudoku Solver</title>
+  <style>
+    :root {
+      --ink: #f8fafc;
+      --muted: #cbd5e1;
+      --panel: rgba(255, 255, 255, 0.09);
+      --accent: #22d3ee;
+      --accent-soft: #a78bfa;
+      --line: rgba(148, 163, 184, 0.35);
+      --strong-line: #e2e8f0;
+      --light-heading: #f8fafc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      background-color: #0f172a;
+      background-image: radial-gradient(circle, rgba(148, 163, 184, 0.16) 1px, transparent 1px);
+      background-size: 24px 24px;
+      animation: page-in 600ms ease-out both;
+    }
+
+    main {
+      width: min(900px, 92vw);
+      margin: 0 auto;
+      padding: 56px 0;
+    }
+
+    header { max-width: 650px; margin-bottom: 36px; }
+    .eyebrow { color: var(--accent); font: 700 0.78rem/1.2 system-ui, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; }
+    h1 { margin: 10px 0 10px; background: linear-gradient(100deg, var(--accent), var(--accent-soft)); background-clip: text; -webkit-background-clip: text; color: transparent; font-size: 4.5rem; line-height: 0.95; }
+    h2, h3 { color: var(--strong-line); }
+    h2 { margin-top: 0; font-size: 1.65rem; }
+    p { color: var(--muted); font: 1rem/1.55 system-ui, sans-serif; }
+    header p { color: var(--muted); }
+
+    section {
+      display: grid;
+      grid-template-columns: minmax(280px, 430px) 1fr;
+      gap: 34px;
+      align-items: start;
+    }
+
+    .board-wrap, .result {
+      padding: 26px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 60px rgba(2, 6, 23, 0.42);
+      transition: transform 180ms ease, box-shadow 180ms ease;
+    }
+    .board-wrap:hover, .result:hover { transform: translateY(-3px); box-shadow: 0 26px 70px rgba(2, 6, 23, 0.55); }
+
+    .board { display: grid; grid-template-columns: repeat(9, 1fr); border: 2px solid var(--accent); border-radius: 10px; overflow: hidden; box-shadow: 0 0 24px rgba(34, 211, 238, 0.18); }
+    .puzzle-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .puzzle-choice { margin-top: 0; background: var(--strong-line); }
+    .puzzle-choice.selected { background: var(--accent); }
+    button:disabled { cursor: not-allowed; opacity: 0.45; }
+    input {
+      width: 100%; aspect-ratio: 1; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+      background: transparent; color: var(--ink); text-align: center; font: 700 clamp(1rem, 3vw, 1.5rem) Georgia, serif;
+    }
+    input:focus { outline: 3px solid #ee8fb0; outline-offset: -3px; background: #fff0f6; }
+    input:nth-child(3n) { border-right: 2px solid var(--accent); }
+    input:nth-child(9n) { border-right: 0; }
+    input:nth-child(n+19):nth-child(-n+27), input:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid var(--accent); }
+    input:nth-child(n+73) { border-bottom: 0; }
+
+    button {
+      margin-top: 18px; width: 100%; padding: 14px 18px; border: 0; border-radius: 10px; background: var(--accent-soft); color: white;
+      cursor: pointer; font: 700 0.9rem system-ui, sans-serif; letter-spacing: 0.06em; text-transform: uppercase; transition: background 160ms ease, transform 160ms ease;
+    }
+    button:hover:not(:disabled) { background: #b72f60; transform: translateY(-1px); }
+    button.puzzle-choice { background: var(--strong-line); }
+    button.puzzle-choice { background: linear-gradient(135deg, #4c1d95, #312e81); color: white; border: 1px solid rgba(167, 139, 250, 0.45); box-shadow: 0 8px 22px rgba(76, 29, 149, 0.28); }
+    button.puzzle-choice.selected { background: linear-gradient(135deg, #4c1d95, #312e81); border: 2px solid var(--accent); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2), 0 0 26px rgba(34, 211, 238, 0.3); }
+    button.puzzle-choice:hover { background: linear-gradient(135deg, #6d28d9, #4338ca); }
+    #show-puzzle { background: linear-gradient(100deg, #f59e0b, #f97316); border: 1px solid rgba(253, 186, 116, 0.45); }
+    #show-puzzle.ready { background: linear-gradient(100deg, #f59e0b, #f97316); }
+    #clue, #retry, #back-to-choices { background: rgba(255, 255, 255, 0.08); color: var(--strong-line); border: 1px solid rgba(255, 255, 255, 0.22); }
+    #solve, #next-puzzle { background: linear-gradient(100deg, #06b6d4, #14b8a6); border: 1px solid rgba(103, 232, 249, 0.5); }
+    #clue:hover, #retry:hover, #back-to-choices:hover { background: rgba(255, 255, 255, 0.16); }
+    #show-puzzle:hover:not(:disabled) { background: linear-gradient(100deg, #fbbf24, #fb923c); }
+    #solve:hover:not(:disabled), #next-puzzle:hover:not(:disabled) { background: linear-gradient(100deg, #22d3ee, #2dd4bf); }
+    .result h2 { margin: 0 0 12px; font-size: 1.7rem; }
+    #status { min-height: 48px; margin: 0; }
+    .answer-grid { display: grid; grid-template-columns: repeat(9, 1fr); margin: 18px 0; border: 2px solid var(--accent); border-radius: 10px; overflow: hidden; box-shadow: 0 0 24px rgba(34, 211, 238, 0.18); }
+    .answer-cell { display: grid; place-items: center; aspect-ratio: 1; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); color: #fbbf24; font: 700 clamp(0.85rem, 2vw, 1.2rem) Georgia, serif; animation: cell-in 300ms ease-out both; }
+    .answer-cell:nth-child(n) { animation-delay: calc((var(--cell-index, 0)) * 8ms); }
+    .answer-cell:nth-child(3n) { border-right: 2px solid var(--accent); }
+    .answer-cell:nth-child(9n) { border-right: 0; }
+    .answer-cell:nth-child(n+19):nth-child(-n+27), .answer-cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid var(--accent); }
+    .answer-cell:nth-child(n+73) { border-bottom: 0; }
+    .solved { color: #9f2c59; }
+    .error { color: #a42b4e; }
+    @keyframes page-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes cell-in { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+
+    @media (max-width: 700px) {
+      main { padding: 32px 0; }
+      h1 { font-size: 3.2rem; }
+      .board-wrap, .result { padding: 20px; }
+      section { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Backtracking algorithm</div>
+      <h1>Sudoku Solver</h1>
+      <p>Choose a puzzle first, then open its question and solve it.</p>
+    </header>
+
+    <section>
+      <div class="board-wrap">
+        <div id="choice-panel">
+          <h2 id="puzzle-heading">Choose a puzzle</h2>
+          <div class="puzzle-choices" aria-labelledby="puzzle-heading">
+            <button class="puzzle-choice" data-puzzle="0" aria-pressed="false">Puzzle 1</button>
+            <button class="puzzle-choice" data-puzzle="1" aria-pressed="false">Puzzle 2</button>
+          </div>
+        </div>
+        <button id="show-puzzle" disabled>Open question</button>
+        <div id="puzzle-content" hidden>
+          <div class="board" id="board" aria-label="Sudoku puzzle"></div>
+          <button id="clue">Give me a clue</button>
+          <button id="solve">Show answer</button>
+          <button id="retry" hidden>Try again</button>
+          <button id="back-to-choices" hidden>Back to choices</button>
+          <button id="next-puzzle" hidden>Go to Puzzle 2</button>
+        </div>
+      </div>
+      <div class="result">
+        <h2>Answer</h2>
+        <p id="status">Select Puzzle 1 or Puzzle 2 to open the question.</p>
+        <div class="answer-grid" id="answer-grid" hidden aria-label="Solved Sudoku answer"></div>
+        <div id="logic" hidden>
+          <h3>How it was solved</h3>
+          <ol>
+            <li>Find the first empty cell.</li>
+            <li>Try numbers from 1 to 9.</li>
+            <li>Keep a number only when its row, column, and 3x3 box allow it.</li>
+            <li>Backtrack when a choice leads to a dead end.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const puzzles = [
+      [
+        [5, 3, 0, 0, 7, 0, 0, 0, 0], [6, 0, 0, 1, 9, 5, 0, 0, 0],
+        [0, 9, 8, 0, 0, 0, 0, 6, 0], [8, 0, 0, 0, 6, 0, 0, 0, 3],
+        [4, 0, 0, 8, 0, 3, 0, 0, 1], [7, 0, 0, 0, 2, 0, 0, 0, 6],
+        [0, 6, 0, 0, 0, 0, 2, 8, 0], [0, 0, 0, 4, 1, 9, 0, 0, 5],
+        [0, 0, 0, 0, 8, 0, 0, 7, 9]
+      ],
+      [
+        [0, 0, 3, 0, 2, 0, 6, 0, 0], [9, 0, 0, 3, 0, 5, 0, 0, 1],
+        [0, 0, 1, 8, 0, 6, 4, 0, 0], [0, 0, 8, 1, 0, 2, 9, 0, 0],
+        [7, 0, 0, 0, 0, 0, 0, 0, 8], [0, 0, 6, 7, 0, 8, 2, 0, 0],
+        [0, 0, 2, 6, 0, 9, 5, 0, 0], [8, 0, 0, 2, 0, 3, 0, 0, 9],
+        [0, 0, 5, 0, 1, 0, 3, 0, 0]
+      ]
+    ];
+    let currentPuzzleIndex = 0;
+
+    const board = document.querySelector('#board');
+    const status = document.querySelector('#status');
+    const answerGrid = document.querySelector('#answer-grid');
+    const logic = document.querySelector('#logic');
+    const clue = document.querySelector('#clue');
+    const retry = document.querySelector('#retry');
+    const choicePanel = document.querySelector('#choice-panel');
+    const showPuzzle = document.querySelector('#show-puzzle');
+    const puzzleContent = document.querySelector('#puzzle-content');
+    const backToChoices = document.querySelector('#back-to-choices');
+    const nextPuzzle = document.querySelector('#next-puzzle');
+    const puzzleChoices = document.querySelectorAll('.puzzle-choice');
+    let selectedPuzzleIndex = null;
+
+    puzzles[0].flat().forEach((value, index) => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'numeric';
+      input.maxLength = 1;
+      input.value = value || '';
+      input.dataset.index = index;
+      input.setAttribute('aria-label', `Row ${Math.floor(index / 9) + 1}, column ${index % 9 + 1}`);
+      board.appendChild(input);
+    });
+
+    function loadPuzzle(index) {
+      currentPuzzleIndex = index;
+      puzzles[index].flat().forEach((value, cellIndex) => {
+        board.querySelectorAll('input')[cellIndex].value = value || '';
+      });
+      status.textContent = 'Complete the puzzle, or ask for a clue.';
+      status.className = '';
+      logic.hidden = true;
+      answerGrid.hidden = true;
+      retry.hidden = true;
+      backToChoices.hidden = true;
+      nextPuzzle.hidden = true;
+    }
+
+    function findEmpty(grid) {
+      for (let row = 0; row < 9; row++) {
+        for (let column = 0; column < 9; column++) {
+          if (grid[row][column] === 0) return [row, column];
+        }
+      }
+      return null;
+    }
+
+    function isValid(grid, number, row, column) {
+      for (let index = 0; index < 9; index++) {
+        if (grid[row][index] === number || grid[index][column] === number) return false;
+      }
+      const boxRow = Math.floor(row / 3) * 3;
+      const boxColumn = Math.floor(column / 3) * 3;
+      for (let boxR = boxRow; boxR < boxRow + 3; boxR++) {
+        for (let boxC = boxColumn; boxC < boxColumn + 3; boxC++) {
+          if (grid[boxR][boxC] === number) return false;
+        }
+      }
+      return true;
+    }
+
+    function solve(grid) {
+      const empty = findEmpty(grid);
+      if (!empty) return true;
+      const [row, column] = empty;
+      for (let number = 1; number <= 9; number++) {
+        if (isValid(grid, number, row, column)) {
+          grid[row][column] = number;
+          if (solve(grid)) return true;
+          grid[row][column] = 0;
+        }
+      }
+      return false;
+    }
+
+    function renderAnswerGrid(grid) {
+      answerGrid.replaceChildren();
+      grid.flat().forEach((value, index) => {
+        const cell = document.createElement('div');
+        cell.className = 'answer-cell';
+        cell.style.setProperty('--cell-index', index);
+        cell.textContent = value;
+        answerGrid.appendChild(cell);
+      });
+      answerGrid.hidden = false;
+    }
+
+    clue.addEventListener('click', () => {
+      const values = [...board.querySelectorAll('input')].map(input => Number(input.value) || 0);
+      const grid = Array.from({ length: 9 }, (_, row) => values.slice(row * 9, row * 9 + 9));
+      const answer = grid.map(row => [...row]);
+      if (!solve(answer)) {
+        status.textContent = 'Check the numbers already entered; this puzzle has no solution.';
+        status.className = 'error';
+        return;
+      }
+      const emptyIndex = values.findIndex(value => value === 0);
+      const row = Math.floor(emptyIndex / 9) + 1;
+      const column = emptyIndex % 9 + 1;
+      status.textContent = `Clue: row ${row}, column ${column} should be ${answer[row - 1][column - 1]}.`;
+      status.className = 'solved';
+    });
+
+    document.querySelector('#solve').addEventListener('click', () => {
+      logic.hidden = true;
+      const values = [...board.querySelectorAll('input')].map(input => Number(input.value) || 0);
+      if (values.some(value => value < 0 || value > 9)) {
+        status.textContent = 'Use only numbers from 1 to 9.';
+        status.className = 'error';
+        return;
+      }
+      const grid = Array.from({ length: 9 }, (_, row) => values.slice(row * 9, row * 9 + 9));
+      const start = performance.now();
+      const solved = solve(grid);
+      if (!solved) {
+        status.textContent = 'No solution exists for this puzzle.';
+        status.className = 'error';
+        return;
+      }
+      board.querySelectorAll('input').forEach((input, index) => input.value = grid[Math.floor(index / 9)][index % 9]);
+      renderAnswerGrid(grid);
+      status.textContent = `Solved in ${(performance.now() - start).toFixed(2)} ms.`;
+      status.className = 'solved';
+      logic.hidden = false;
+      retry.hidden = false;
+      backToChoices.hidden = false;
+      nextPuzzle.hidden = currentPuzzleIndex !== 0;
+    });
+
+    retry.addEventListener('click', () => {
+      board.querySelectorAll('input').forEach((input, index) => {
+        input.value = puzzles[currentPuzzleIndex][Math.floor(index / 9)][index % 9] || '';
+      });
+      status.textContent = 'Try solving the puzzle again, or ask for a clue.';
+      status.className = '';
+      logic.hidden = true;
+      answerGrid.replaceChildren();
+      answerGrid.hidden = true;
+      retry.hidden = true;
+    });
+
+    puzzleChoices.forEach(choice => choice.addEventListener('click', () => {
+      selectedPuzzleIndex = Number(choice.dataset.puzzle);
+      puzzleChoices.forEach(button => {
+        button.classList.remove('selected');
+        button.setAttribute('aria-pressed', 'false');
+      });
+      choice.classList.add('selected');
+      choice.setAttribute('aria-pressed', 'true');
+      showPuzzle.disabled = false;
+      showPuzzle.classList.add('ready');
+      status.textContent = `Puzzle ${selectedPuzzleIndex + 1} selected. Select Open question.`;
+      status.className = '';
+    }));
+
+    showPuzzle.addEventListener('click', () => {
+      loadPuzzle(selectedPuzzleIndex);
+      puzzleContent.hidden = false;
+      choicePanel.hidden = true;
+      showPuzzle.hidden = true;
+      status.textContent = 'Question opened. Solve it yourself or select Show answer.';
+    });
+
+    backToChoices.addEventListener('click', () => {
+      puzzleContent.hidden = true;
+      choicePanel.hidden = false;
+      showPuzzle.hidden = false;
+      status.textContent = 'Choose Puzzle 1 or Puzzle 2, then select Open question.';
+      status.className = '';
+      logic.hidden = true;
+      answerGrid.hidden = true;
+      retry.hidden = true;
+      backToChoices.hidden = true;
+    });
+
+    nextPuzzle.addEventListener('click', () => {
+      loadPuzzle(1);
+      status.textContent = 'Puzzle 2 is ready. Complete it, or ask for a clue.';
+      nextPuzzle.hidden = true;
+    });
+  </script>
+</body>
+</html>
